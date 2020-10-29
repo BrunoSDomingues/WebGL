@@ -1,8 +1,8 @@
-## WebGL
+# WebGL
 
 Repositório com os exemplos de WebGL utilizados no curso de Computação Gráfica.
 
-### Exemplos
+## Exemplos
 
 - [Exemplo 1](Parte1.html)
 - [Exemplo 2](Parte2.html)
@@ -10,6 +10,6 @@ Repositório com os exemplos de WebGL utilizados no curso de Computação Gráfi
 - [Exemplo 4](Parte4.html)
 - Coming soon...
 
-### Entregas 
+### Entregas
 
-- [Parte 1 - Pirâmide](piramide.html)
+- [Parte 1 - Pirâmide](proj2_part1.html)
