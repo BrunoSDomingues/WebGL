@@ -87,7 +87,7 @@
         // Rotina para contruir todos os buffers
         const buffers = initBuffers(gl);
 
-        const texture = loadTexture(gl, 'logo.png');
+        const texture = loadTexture(gl, 'https://raw.githubusercontent.com/lpsoares/WebGL/main/logo.png');
 
         var then = 0;
 
@@ -481,6 +481,7 @@
             }
         };
 
+        image.crossOrigin = 'anonymous';
         image.src = url;
 
         return texture;
