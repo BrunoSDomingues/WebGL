@@ -12,4 +12,5 @@ Repositório com os exemplos de WebGL utilizados no curso de Computação Gráfi
 
 ### Entregas
 
-- [Parte 1 - Pirâmide](proj2_part1.html)
+- [Parte 1 - Pirâmide](parte1/Piramide.html)
+- [Parte 2 - Representação Topográfica](parte2/Representacao.html)
