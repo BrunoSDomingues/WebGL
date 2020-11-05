@@ -1,0 +1,583 @@
+<html>
+
+  <head>
+    <meta charset="utf-8">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gl-matrix/2.8.1/gl-matrix-min.js"
+            integrity="sha512-zhHQR0/H5SEBL3Wn6yYSaTTZej12z0hVZKOv3TwCUXT1z5qeqGcXJLLrbERYRScEDDpYIJhPC1fk31gqR783iQ=="
+            crossorigin="anonymous">
+    </script>
+
+  </head>
+
+  <body>
+    <canvas id="glcanvas" width="640" height="480"></canvas>
+  </body>
+
+  <script>
+
+    var squareRotation = 0.0;
+
+    main();
+
+    // Início do Sistema WebGL
+    function main() {
+        const canvas = document.querySelector('#glcanvas');
+        // Initializa o context GL
+        const gl = canvas.getContext('webgl');
+
+        // Caso o navegador não suporte WebGL
+        if (!gl) {
+            alert(' Não foi possível iniciar o WebGL. Seu navegador não deve suportá-lo.');
+            return;
+        }
+
+        // Defina a cor de limpeza para preto sem transparência
+        gl.clearColor(0.0, 0.0, 0.0, 1.0);
+        // Limpe o buffer de cores com a cor especificada
+        gl.clear(gl.COLOR_BUFFER_BIT);
+    
+
+        // Vertex shader
+        const vsSource = `
+            attribute vec4 aVertexPosition;
+            attribute vec3 aVertexNormal;
+            attribute vec2 aTextureCoord;
+
+            uniform mat4 uNormalMatrix;
+            uniform mat4 uModelViewMatrix;
+            uniform mat4 uProjectionMatrix;
+
+            varying highp vec2 vTextureCoord;
+            varying highp vec3 vLighting;
+
+            void main(void) {
+            gl_Position = uProjectionMatrix * uModelViewMatrix * aVertexPosition;
+            vTextureCoord = aTextureCoord;
+
+            // Apply lighting effect
+
+            highp vec3 ambientLight = vec3(0.3, 0.3, 0.3);
+            highp vec3 directionalLightColor = vec3(1, 1, 1);
+            highp vec3 directionalVector = normalize(vec3(0.85, 0.8, 0.75));
+
+            highp vec4 transformedNormal = uNormalMatrix * vec4(aVertexNormal, 1.0);
+
+            highp float directional = max(dot(transformedNormal.xyz, directionalVector), 0.0);
+            vLighting = ambientLight + (directionalLightColor * directional);
+            }
+        `;
+
+        const fsSource = `
+            varying highp vec2 vTextureCoord;
+            varying highp vec3 vLighting;
+
+            uniform sampler2D uSampler;
+
+            void main(void) {
+            highp vec4 texelColor = texture2D(uSampler, vTextureCoord);
+
+            gl_FragColor = vec4(texelColor.rgb * vLighting, texelColor.a);
+            }
+        `;
+
+        const shaderProgram = initShaderProgram(gl, vsSource, fsSource);
+
+        const programInfo = {
+            program: shaderProgram,
+            attribLocations: {
+                vertexPosition: gl.getAttribLocation(shaderProgram, 'aVertexPosition'),
+                //vertexColor: gl.getAttribLocation(shaderProgram, 'aVertexColor'),
+                vertexNormal: gl.getAttribLocation(shaderProgram, 'aVertexNormal'),
+                textureCoord: gl.getAttribLocation(shaderProgram, 'aTextureCoord'),
+            },
+            uniformLocations: {
+                projectionMatrix: gl.getUniformLocation(shaderProgram, 'uProjectionMatrix'),
+                modelViewMatrix: gl.getUniformLocation(shaderProgram, 'uModelViewMatrix'),
+                normalMatrix: gl.getUniformLocation(shaderProgram, 'uNormalMatrix'),
+                uSampler: gl.getUniformLocation(shaderProgram, 'uSampler'),
+            },
+        };
+
+
+        // Rotina para contruir todos os buffers
+        const buffers = initBuffers(gl);
+
+        const texture = loadTexture(gl, 'https://raw.githubusercontent.com/lpsoares/WebGL/main/logo.png');
+
+        var then = 0;
+
+        // Desenha a cena continuamente
+        function render(now) {
+            now *= 0.001;  // converte o tempo para segundos
+            const deltaTime = now - then;
+            then = now;
+
+            drawScene(gl, programInfo, buffers, texture, deltaTime);
+
+            requestAnimationFrame(render);
+        }
+        
+        requestAnimationFrame(render);
+        
+    }
+
+    // Initializa os shaders
+    function initShaderProgram(gl, vsSource, fsSource) {
+        const vertexShader = loadShader(gl, gl.VERTEX_SHADER, vsSource);
+        const fragmentShader = loadShader(gl, gl.FRAGMENT_SHADER, fsSource);
+
+        // Cria os shaders
+        const shaderProgram = gl.createProgram();
+        gl.attachShader(shaderProgram, vertexShader);
+        gl.attachShader(shaderProgram, fragmentShader);
+        gl.linkProgram(shaderProgram);
+
+        // Se a criação dos shaders falhar, alerte o usuário
+        if (!gl.getProgramParameter(shaderProgram, gl.LINK_STATUS)) {
+            alert('Erro ao inicializar o shader: ' + gl.getProgramInfoLog(shaderProgram));
+            return null;
+        }
+
+        return shaderProgram;
+    }
+
+
+    // cria um shader para o código fonte fornecido.
+    function loadShader(gl, type, source) {
+        const shader = gl.createShader(type);
+
+        // Enviar o código fonte para o objeto do shader
+        gl.shaderSource(shader, source);
+
+        // Compila o shader
+        gl.compileShader(shader);
+
+        // Verifica se a compilação funcionou
+        if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+            alert('Um erro ocorreu ao compilar o shader: ' + gl.getShaderInfoLog(shader));
+            gl.deleteShader(shader);
+            return null;
+        }
+
+        return shader;
+    }
+
+    function initBuffers(gl) {
+
+        // Cria um buffer para as posições dos vértices do quadrado.
+        const positionBuffer = gl.createBuffer();
+
+        // Selecione o positionBuffer para aplicar as operações de buffer.
+        gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+
+        // Posições dos vértices do cubo.
+        const positions = [
+
+            // face frontal
+            -1.0, -1.0,  1.0,
+            1.0, -1.0,  1.0,
+            1.0,  1.0,  1.0,
+            -1.0,  1.0,  1.0,
+            
+            // face traseira
+            -1.0, -1.0, -1.0,
+            -1.0,  1.0, -1.0,
+            1.0,  1.0, -1.0,
+            1.0, -1.0, -1.0,
+            
+            // face superior
+            -1.0,  1.0, -1.0,
+            -1.0,  1.0,  1.0,
+            1.0,  1.0,  1.0,
+            1.0,  1.0, -1.0,
+            
+            // face inferior
+            -1.0, -1.0, -1.0,
+            1.0, -1.0, -1.0,
+            1.0, -1.0,  1.0,
+            -1.0, -1.0,  1.0,
+            
+            // face direita
+            1.0, -1.0, -1.0,
+            1.0,  1.0, -1.0,
+            1.0,  1.0,  1.0,
+            1.0, -1.0,  1.0,
+            
+            // face esquerda
+            -1.0, -1.0, -1.0,
+            -1.0, -1.0,  1.0,
+            -1.0,  1.0,  1.0,
+            -1.0,  1.0, -1.0,
+        ];
+
+        // Passe a lista de posições para o WebGL
+        gl.bufferData(gl.ARRAY_BUFFER,
+                        new Float32Array(positions),
+                        gl.STATIC_DRAW);
+
+        // // Definindo uma cor para cada face do cubo
+        // const faceColors = [
+        //   [1.0,  1.0,  1.0,  1.0],    // Face frontal: branca
+        //   [1.0,  0.0,  0.0,  1.0],    // Face traseira: vermelha
+        //   [0.0,  1.0,  0.0,  1.0],    // Face superior: verde
+        //   [0.0,  0.0,  1.0,  1.0],    // Face inferior: azul
+        //   [1.0,  1.0,  0.0,  1.0],    // Face direita: amarela
+        //   [1.0,  0.0,  1.0,  1.0],    // Face esquerda: violeta
+        // ];
+
+        // // Convertendo o vetor de cores para uma matriz para todos os 24 vértices
+        // var colors = [];
+
+        // for (var j = 0; j < faceColors.length; ++j) {
+        //   const c = faceColors[j];
+
+        //   // Repita cada cor 4 vezes para os 4 vértices das faces do cubo
+        //   colors = colors.concat(c, c, c, c);
+        // }
+
+        // const colorBuffer = gl.createBuffer();
+        // gl.bindBuffer(gl.ARRAY_BUFFER, colorBuffer);
+        // gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(colors), gl.STATIC_DRAW);
+        
+        // Definindo as coordenadas de textura
+        const textureCoordBuffer = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, textureCoordBuffer);
+
+        const textureCoordinates = [
+            // Frente
+            1.0,  0.0,
+            0.0,  0.0,
+            0.0,  1.0,
+            1.0,  1.0,
+            // Traseira
+            1.0,  0.0,
+            0.0,  0.0,
+            0.0,  1.0,
+            1.0,  1.0,
+            // Superio
+            1.0,  0.0,
+            0.0,  0.0,
+            0.0,  1.0,
+            1.0,  1.0,
+            // Inferior
+            1.0,  0.0,
+            0.0,  0.0,
+            0.0,  1.0,
+            1.0,  1.0,
+            // Direita
+            1.0,  0.0,
+            0.0,  0.0,
+            0.0,  1.0,
+            1.0,  1.0,
+            // Esquerda
+            1.0,  0.0,
+            0.0,  0.0,
+            0.0,  1.0,
+            1.0,  1.0,
+        ];
+
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(textureCoordinates),
+                        gl.STATIC_DRAW);
+
+
+        // Contruindo vetor de elementos que especifica os indices dos vértices
+        // para cada face do cubo
+        const indexBuffer = gl.createBuffer();
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
+
+        // Este vetor define cada face como dois triângulos, usando os
+        // indices no vetor de vértices para especificar cada triângulo
+        const indices = [
+            0,  1,  2,      0,  2,  3,    // frente
+            4,  5,  6,      4,  6,  7,    // trás
+            8,  9,  10,     8,  10, 11,   // superio
+            12, 13, 14,     12, 14, 15,   // inferior
+            16, 17, 18,     16, 18, 19,   // direita
+            20, 21, 22,     20, 22, 23,   // esquerda
+        ];
+
+        // Enviando os elemntos para o vetor GL
+        gl.bufferData(gl.ELEMENT_ARRAY_BUFFER,
+            new Uint16Array(indices), gl.STATIC_DRAW);
+
+        // Defina as normais por vértice para o cálculo da iluminação
+        const normalBuffer = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, normalBuffer);
+
+        const vertexNormals = [
+            // Frente
+            0.0,  0.0,  1.0,
+            0.0,  0.0,  1.0,
+            0.0,  0.0,  1.0,
+            0.0,  0.0,  1.0,
+
+            // Traseira
+            0.0,  0.0, -1.0,
+            0.0,  0.0, -1.0,
+            0.0,  0.0, -1.0,
+            0.0,  0.0, -1.0,
+
+            // Superior
+            0.0,  1.0,  0.0,
+            0.0,  1.0,  0.0,
+            0.0,  1.0,  0.0,
+            0.0,  1.0,  0.0,
+
+            // Inferior
+            0.0, -1.0,  0.0,
+            0.0, -1.0,  0.0,
+            0.0, -1.0,  0.0,
+            0.0, -1.0,  0.0,
+
+            // Direita
+            1.0,  0.0,  0.0,
+            1.0,  0.0,  0.0,
+            1.0,  0.0,  0.0,
+            1.0,  0.0,  0.0,
+
+            // Esquerda
+            -1.0,  0.0,  0.0,
+            -1.0,  0.0,  0.0,
+            -1.0,  0.0,  0.0,
+            -1.0,  0.0,  0.0
+        ];
+
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertexNormals),
+                        gl.STATIC_DRAW);
+
+        return {
+            position: positionBuffer,
+            //color: colorBuffer,
+            textureCoord: textureCoordBuffer,
+            indices: indexBuffer,
+            normal: normalBuffer,
+        };
+    }
+
+    function drawScene(gl, programInfo, buffers, texture, deltaTime) {
+
+
+        // Atualiza o valor da rotação
+        squareRotation += deltaTime;
+
+        gl.clearColor(0.0, 0.0, 0.0, 1.0);  // define cor para pintar de preto sem transparência
+        gl.clearDepth(1.0);                 // Limpa o buffer de profundidade
+        gl.enable(gl.DEPTH_TEST);           // Liga o teste de profundidade (Z-Buffer)
+
+        // Pinta todo o canvas com a cor padrão (preto)
+        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+        // Cria uma matriz de perspectiva com um campo de visão de 45 graus,
+        // com a proporção de largura/altura correspondente ao tamanho de
+        // exibição da tela, com objetos visiveis entre 0.1 e 100 unidades
+        // de distância da câmera.
+        const fieldOfView = 45 * Math.PI / 180;
+        const aspect = gl.canvas.clientWidth / gl.canvas.clientHeight;
+        const zNear = 0.1;
+        const zFar = 100.0;
+        const projectionMatrix = mat4.create();
+
+        mat4.perspective(projectionMatrix,
+                        fieldOfView,
+                        aspect,
+                        zNear,
+                        zFar);
+
+        // Define a posição do desenho para a identidade, que é
+        // o centro da cena.
+        const modelViewMatrix = mat4.create();
+
+        // Move a posição do desenho para onde queremos
+        // desenhar o quadrado.
+        mat4.translate(modelViewMatrix,    // matriz de destino
+                       modelViewMatrix,    // matriz para transladar
+                       [0.0, 0.0, -6.0]);  // translação
+
+        mat4.rotate(modelViewMatrix,  // matriz de destino
+                    modelViewMatrix,  // matriz para rotacionar
+                    squareRotation,   // quantidade de radianos a se rotacionar
+                    [0, 0, 1]);       // eixo para ser girar em volta
+
+        mat4.rotate(modelViewMatrix,  // matriz de destino
+                    modelViewMatrix,  // matriz para rotacionar
+                    squareRotation*.7,// quantidade de radianos a se rotacionar * 0.7
+                    [0, 1, 0]);       // eixo para ser girar em volta
+
+        const normalMatrix = mat4.create();
+        mat4.invert(normalMatrix, modelViewMatrix);
+        mat4.transpose(normalMatrix, normalMatrix);
+
+        // Diga ao WebGL como retirar as posições do
+        // atributo vertexPosition do buffer
+        {
+            const numComponents = 3;  // passa 3 valores por vez
+            const type = gl.FLOAT;    // os dados no buffer são floats de 32bit
+            const normalize = false;  // não normalize
+            const stride = 0;         // quantos bytes de espaço de um conjunto de valores para o próximo
+                                      // 0 = use o tipo e número de componentes acima
+            const offset = 0;         // quantos bytes pular dentro do buffer para começar
+            gl.bindBuffer(gl.ARRAY_BUFFER, buffers.position);
+            gl.vertexAttribPointer(
+                programInfo.attribLocations.vertexPosition,
+                numComponents,
+                type,
+                normalize,
+                stride,
+                offset);
+            gl.enableVertexAttribArray(
+                programInfo.attribLocations.vertexPosition);
+        }
+
+        // Diga ao WebGL como retirar as cores do buffer de cores
+        //   // para colocar no atributo vertexColor.
+        //   {
+        //     const numComponents = 4;
+        //     const type = gl.FLOAT;
+        //     const normalize = false;
+        //     const stride = 0;
+        //     const offset = 0;
+        //     gl.bindBuffer(gl.ARRAY_BUFFER, buffers.color);
+        //     gl.vertexAttribPointer(
+        //         programInfo.attribLocations.vertexColor,
+        //         numComponents,
+        //         type,
+        //         normalize,
+        //         stride,
+        //         offset);
+        //     gl.enableVertexAttribArray(
+        //         programInfo.attribLocations.vertexColor);
+        // }
+
+        // Diga ao WebGL como retirar as coordenadas de textura do
+        // buffer de coordenadas de textura para colocar no atributo textureCoord
+        {
+            const numComponents = 2;
+            const type = gl.FLOAT;
+            const normalize = false;
+            const stride = 0;
+            const offset = 0;
+            gl.bindBuffer(gl.ARRAY_BUFFER, buffers.textureCoord);
+            gl.vertexAttribPointer(
+                programInfo.attribLocations.textureCoord,
+                numComponents,
+                type,
+                normalize,
+                stride,
+                offset);
+            gl.enableVertexAttribArray(
+                programInfo.attribLocations.textureCoord);
+        }
+
+        // Diga ao WebGL como colocar as normais do buffer de
+        // normais no atributo vertexNormal.
+        {
+            const numComponents = 3;
+            const type = gl.FLOAT;
+            const normalize = false;
+            const stride = 0;
+            const offset = 0;
+            gl.bindBuffer(gl.ARRAY_BUFFER, buffers.normal);
+            gl.vertexAttribPointer(
+                programInfo.attribLocations.vertexNormal,
+                numComponents,
+                type,
+                normalize,
+                stride,
+                offset);
+            gl.enableVertexAttribArray(
+                programInfo.attribLocations.vertexNormal);
+        }
+
+        // Diga ao WebGL quais indices usar para conectar os vértices
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, buffers.indices);
+
+        // Diga ao WebGL para usar nosso programa ao desenhar
+        gl.useProgram(programInfo.program);
+
+        // Defina os uniforms dos shaders
+        gl.uniformMatrix4fv(
+            programInfo.uniformLocations.projectionMatrix,
+            false,
+            projectionMatrix);
+        gl.uniformMatrix4fv(
+            programInfo.uniformLocations.modelViewMatrix,
+            false,
+            modelViewMatrix);
+        gl.uniformMatrix4fv(
+            programInfo.uniformLocations.normalMatrix,
+            false,
+            normalMatrix);
+            
+        // Especifica o mapeamento de texturas
+
+        // Informe o WebGL que se deseja trabalhar com a unidade de textura 0
+        gl.activeTexture(gl.TEXTURE0);
+
+        // Vincule (bind) a textura com a unidade 0
+        gl.bindTexture(gl.TEXTURE_2D, texture);
+
+        // Diga ao shader que limitamos a textura à unidade de textura 0
+        gl.uniform1i(programInfo.uniformLocations.uSampler, 0);
+
+        {
+            const offset = 0;
+            const vertexCount = 36;
+            const type = gl.UNSIGNED_SHORT;
+            gl.drawElements(gl.TRIANGLES, vertexCount, type, offset);
+        }
+
+    }
+
+    // Carrega a textura para o contexto WebGL
+    function loadTexture(gl, url) {
+        const texture = gl.createTexture();
+        gl.bindTexture(gl.TEXTURE_2D, texture);
+
+        // Como as imagens precisam ser baixadas da internet,
+        // elas podem demorar um pouco até estarem prontas.
+        // Assim coloque um único pixel na textura para que
+        // possamos usá-la imediatamente. Quando a imagem terminar
+        // de carregar, vamos atualizar a textura com o conteúdo dela.
+        const level = 0;
+        const internalFormat = gl.RGBA;
+        const width = 1;
+        const height = 1;
+        const border = 0;
+        const srcFormat = gl.RGBA;
+        const srcType = gl.UNSIGNED_BYTE;
+        const pixel = new Uint8Array([0, 0, 255, 255]);  // opaque blue
+        gl.texImage2D(gl.TEXTURE_2D, level, internalFormat,
+                        width, height, border, srcFormat, srcType,
+                        pixel);
+
+        const image = new Image();
+        image.onload = function() {
+            gl.bindTexture(gl.TEXTURE_2D, texture);
+            gl.texImage2D(gl.TEXTURE_2D, level, internalFormat,
+                        srcFormat, srcType, image);
+
+            // WebGL1 tem requisitos diferentes para potência de 2 em imagens
+            // versus não potência de 2 nas imagens, portanto, verifique se
+            // a imagem é potência de 2 em ambas as dimensões.
+            if (isPowerOf2(image.width) && isPowerOf2(image.height)) {
+                gl.generateMipmap(gl.TEXTURE_2D);  // Potência de 2, gere os mipmaps
+            } else {
+                // Não é potência de 2. Desligar mipmaps e wrapping para clamp to edge
+                gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+                gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+                gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+            }
+        };
+
+        image.crossOrigin = 'anonymous';
+        image.src = url;
+
+        return texture;
+    }
+
+    function isPowerOf2(value) {
+        return (value & (value - 1)) == 0;
+    }
+
+  </script>
+</html>
