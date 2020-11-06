@@ -2,7 +2,7 @@
 
 // Importando arrays
 
-import { p_array, c_array, i_array } from './arrays.js';
+import { pos_array, color_array, pto_ind_array } from '../src/arrays.js';
 
 var squareRotation = 0.0;
 
@@ -135,7 +135,7 @@ function initBuffers(gl) {
     gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
 
     // Posições dos vértices do cubo.
-    const positions = p_array;
+    const positions = pos_array;
 
     // Passe a lista de posições para o WebGL
     gl.bufferData(gl.ARRAY_BUFFER,
@@ -143,7 +143,7 @@ function initBuffers(gl) {
         gl.STATIC_DRAW);
 
     // Definindo uma cor para cada face do cubo
-    const faceColors = c_array;
+    const faceColors = color_array;
 
     // Convertendo o vetor de cores para uma matriz para todos os 24 vértices
     // var colors = [];
@@ -166,7 +166,7 @@ function initBuffers(gl) {
 
     // Este vetor define cada face como dois triângulos, usando os
     // indices no vetor de vértices para especificar cada triângulo
-    const indices = i_array;
+    const indices = pto_ind_array;
 
     // Enviando os elemntos para o vetor GL
     gl.bufferData(gl.ELEMENT_ARRAY_BUFFER,
