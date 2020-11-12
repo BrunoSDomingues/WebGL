@@ -187,7 +187,7 @@ function initBuffers(gl) {
         gl.STATIC_DRAW);
 
     // Definindo uma cor para a linha
-    const lineColors = [1.0, 1.0, 1.0, 1.0];
+    const lineColors = new Array(79 * 4).fill(1.0);
 
     const lineColorBuffer = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, lineColorBuffer);
